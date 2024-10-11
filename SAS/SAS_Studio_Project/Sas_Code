@@ -1,0 +1,714 @@
+proc import datafile='/home/u63810020/sasuser.v94/flight.csv' out=ASSIGN.flight 
+		dbms=csv replace;
+	getnames=yes;
+run;
+
+/* Display variable types */
+proc contents data=ASSIGN.flight;
+run;
+
+/* Count of missing values per column for numeric variables */
+proc means data=ASSIGN.flight n nmiss;
+	var _numeric_;
+run;
+
+proc contents data=ASSIGN.flight out=column_names noprint;
+run;
+
+proc print data=column_names;
+	var name;
+run;
+
+/*
+1	AGE
+2	AVG_INTERVAL
+3	BP_SUM
+4	EXCHANGE_COUNT
+5	FFP_DATE
+6	FFP_TIER
+7	FIRST_FLIGHT_DATE
+8	FLIGHT_COUNT
+9	GENDER
+10	LAST_FLIGHT_DATE
+11	LAST_TO_END
+12	LOAD_TIME
+13	MAX_INTERVAL
+14	MEMBER_NO
+15	Point_NotFlight
+16	Points_Sum
+17	SEG_KM_SUM
+18	SUM_YR_1
+19	SUM_YR_2
+20	WORK_CITY
+21	WORK_COUNTRY
+22	WORK_PROVINCE
+23	avg_discount
+*/
+/*  AGE - .
+Gender - blank space
+FIRST_FLIGHT_DATE - 1905
+LAST_FLIGHT_DATE - .
+SUM_YR_1 - .
+SUM_YR_2 - .
+WORK_CITY:
+1 	blank space
+2	#NAME?
+3	*
+4	**
+5	-
+6	--
+7	.beijing
+8	.kunming
+9	.shanghai
+10	.shenzhen
+11	.xishui
+12	.zhaoyangqu
+13	.zhongqing
+14	/
+15	0
+16	1
+17	1-2-1 OHTEMACHI
+18	12961
+19	13720514406
+20	33 CONDUIT ROAD
+21	5
+22	50668 KOELN
+23	6400sonderboro
+24	75003
+25	9460 BNOUST
+26	=
+27	?
+ＴＷ
+2	．
+3	－
+4	。
+5
+6
+7	　shanghai
+8	　beijing　�
+9
+WORK_COUNTRY:
+1	�
+2	�
+3	�
+4	�
+5	cn
+6 	blank space
+WORK_PROVINCE:
+2	#NAME?
+3	*
+4	**
+5	-
+6	--
+7	---
+8	..
+9	.beijing
+10	.guangxizh
+11	.hubei
+12	.shanghai
+13	.yunnan
+14	.zhongqing
+15	/
+16	0
+17	0401 MM P.
+18	1
+19	120330
+20	33
+21	7/12/1964
+22	92300
+23	94000
+24	94sheng
+25	96081184
+26	=
+1	ＴＷ
+2	．
+3	－
+4	shanxia
+5	。
+6
+7	blank space
+8	——
+*/
+
+/*clearing data from characters and incorrect values*/
+proc sql;
+	create table cleaned_data as select *, case when prxmatch('/[0-9#\*\-\.\`\,\/=\?\+\&\!\@\%\^\&\*\(\)_\+\[\]\{\}\|\\\\";:<>\~．－。]/', 
+		WORK_CITY) > 0 then '' else WORK_CITY end as WORK_CITY_clean, case when prxmatch('/[0-9#\*\-\.\`\,\/=\?\+\&\!\@\%\^\&\*\(\)_\+\[\]\{\}\|\\\\";:<>\~．－。]/', 
+		WORK_COUNTRY) > 0 then '' else WORK_COUNTRY end as WORK_COUNTRY_clean, case 
+		when prxmatch('/[0-9#\*\-\.\`\,\/=\?\+\&\!\@\%\^\&\*\(\)_\+\[\]\{\}\|\\\\";:<>\~．－。]/', 
+		WORK_PROVINCE) > 0 then '' else WORK_PROVINCE end as WORK_PROVINCE_clean from 
+		ASSIGN.flight;
+quit;
+
+proc sql;
+	select sum(missing(WORK_CITY)) as Missing_WORK_CITY, 
+		sum(missing(WORK_CITY_clean)) as Missing_WORK_CITY_clean, 
+		sum(missing(WORK_COUNTRY)) as Missing_WORK_COUNTRY, 
+		sum(missing(WORK_COUNTRY_clean)) as WORK_COUNTRY_clean, 
+		sum(missing(WORK_PROVINCE)) as Missing_WORK_PROVINCE, 
+		sum(missing(WORK_PROVINCE_clean)) as WORK_PROVINCE_clean from cleaned_data;
+quit;
+
+data cleaned_data;
+	set cleaned_data;
+	WORK_CITY_clean=UPCASE(WORK_CITY_clean);
+	WORK_PROVINCE_clean=UPCASE(WORK_PROVINCE_clean);
+	WORK_COUNTRY_clean=UPCASE(WORK_COUNTRY_clean);
+run;
+
+proc freq data=cleaned_data;
+	tables WORK_COUNTRY_clean / noprint out=unique_values(keep=WORK_COUNTRY_clean);
+run;
+
+proc print data=unique_values;
+run;
+
+proc sql;
+	create table nan_counts as select 'WORK_CITY' as Variable, 
+		sum(missing(WORK_CITY)) as Missing from cleaned_data union all select 
+		'WORK_CITY_clean', sum(missing(WORK_CITY_clean)) from cleaned_data union all 
+		select 'WORK_COUNTRY', sum(missing(WORK_COUNTRY)) from cleaned_data union all 
+		select 'WORK_COUNTRY_clean', sum(missing(WORK_COUNTRY_clean)) from 
+		cleaned_data union all select 'WORK_PROVINCE', sum(missing(WORK_PROVINCE)) 
+		from cleaned_data union all select 'WORK_PROVINCE_clean', 
+		sum(missing(WORK_PROVINCE_clean)) from cleaned_data union all select 'AGE', 
+		sum(missing(AGE)) from cleaned_data union all select 'AVG_INTERVAL', 
+		sum(missing(AVG_INTERVAL)) from cleaned_data union all select 'BP_SUM', 
+		sum(missing(BP_SUM)) from cleaned_data union all select 'EXCHANGE_COUNT', 
+		sum(missing(EXCHANGE_COUNT)) from cleaned_data union all select 'FFP_DATE', 
+		sum(missing(datepart(FFP_DATE))) from cleaned_data union all select 
+		'FFP_TIER', sum(missing(FFP_TIER)) from cleaned_data union all select 
+		'FIRST_FLIGHT_DATE', sum(missing(datepart(FIRST_FLIGHT_DATE))) from 
+		cleaned_data union all select 'FLIGHT_COUNT', sum(missing(FLIGHT_COUNT)) from 
+		cleaned_data union all select 'LAST_FLIGHT_DATE', 
+		sum(missing(datepart(LAST_FLIGHT_DATE))) from cleaned_data union all select 
+		'LAST_TO_END', sum(missing(LAST_TO_END)) from cleaned_data union all select 
+		'LOAD_TIME', sum(missing(LOAD_TIME)) from cleaned_data union all select 
+		'MAX_INTERVAL', sum(missing(MAX_INTERVAL)) from cleaned_data union all select 
+		'MEMBER_NO', sum(missing(MEMBER_NO)) from cleaned_data union all select 
+		'Point_NotFlight', sum(missing(Point_NotFlight)) from cleaned_data union all 
+		select 'Points_Sum', sum(missing(Points_Sum)) from cleaned_data union all 
+		select 'SEG_KM_SUM', sum(missing(SEG_KM_SUM)) from cleaned_data union all 
+		select 'SUM_YR_1', sum(missing(SUM_YR_1)) from cleaned_data union all select 
+		'SUM_YR_2', sum(missing(SUM_YR_2)) from cleaned_data union all select 
+		'avg_discount', sum(missing(avg_discount)) from cleaned_data union all select 
+		'Gender', sum(missing(Gender)) from cleaned_data;
+quit;
+
+/*distribution of missing values*/
+proc sgplot data=nan_counts;
+	vbar Variable / response=Missing datalabel;
+	xaxis label='Variables';
+	yaxis label='Number of Missing Values';
+	title 'Distribution of Missing Values by Variable';
+run;
+
+data cleaned_data;
+	set cleaned_data;
+	drop WORK_CITY WORK_COUNTRY WORK_PROVINCE;
+run;
+
+/* Step 1: Count missing values in each row */
+data cleaned_data_with_nans;
+	set cleaned_data;
+	missing_count=cmiss(of _all_) - 1;
+run;
+
+/* Step 2: Plotting the sum of missing values by row */
+proc sgplot data=cleaned_data_with_nans;
+	histogram missing_count;
+	xaxis label="Number of Missing Values";
+	yaxis label="Frequency";
+run;
+
+/* Step 3: Remove rows with more than 3 missing values */
+data final_cleaned_data;
+	set cleaned_data_with_nans;
+
+	if missing_count <=2;
+run;
+
+
+proc freq data=final_cleaned_data;
+	tables Gender WORK_COUNTRY_clean;
+run;
+
+/* Get a list of all numeric variables */
+proc contents data=final_cleaned_data out=var_list(keep=name type);
+run;
+
+proc sql noprint;
+	select name into :num_vars separated by ' ' from var_list where type=1;
+
+quit;
+
+/* Checking a list of numeric variables */
+%put &num_vars;
+
+/* Plotting graphs for each numeric variable separately */
+%macro box_plot_vars(data);
+	%let i = 1;
+	%let var = %scan(&num_vars, &i);
+
+	%do %while (&var ne);
+
+		proc sgplot data=&data;
+			vbox &var;
+			title "Box Plot for &var";
+		run;
+
+		%let i = %eval(&i + 1);
+		%let var = %scan(&num_vars, &i);
+	%end;
+%mend box_plot_vars;
+
+%box_plot_vars(final_cleaned_data);
+
+%macro hist_plot_vars (data);
+	%let i = 1;
+	%let var = %scan(&num_vars, &i);
+
+	%do %while (&var ne);
+
+		proc sgplot data=&data;
+			histogram &var;
+			title "Histogram for &var";
+		run;
+
+		%let i = %eval(&i + 1);
+		%let var = %scan(&num_vars, &i);
+	%end;
+%mend plot_vars;
+
+%hist_plot_vars(final_cleaned_data);
+
+data final_cleaned_data;
+	set final_cleaned_data;
+
+	if AGE < 17 or AGE > 100 then
+		AGE=.;
+run;
+
+
+/*cleaning data by interquartile range*/
+%macro clean_iqr_single_var(data, var, out_data);
+/* Calculation of quartiles */
+	proc means data=&data Q1 Q3 noprint;
+		var &var;
+		output out=quartiles Q1=Q1 Q3=Q3;
+	run;
+
+/* View quartile values */
+	proc print data=quartiles;
+		title "Quartiles for &var";
+	run;
+
+/* Clear data by IQR */
+	data &out_data;
+		set &data;
+
+		if _n_=1 then
+			set quartiles;
+		IQR=Q3 - Q1;
+		lower_bound=Q1 - 1.5 * IQR;
+		upper_bound=Q3 + 1.5 * IQR;
+
+		if &var >=lower_bound and &var <=upper_bound;
+	run;
+
+	data &out_data;
+		set &out_data;
+		drop Q1 Q3 _TYPE_ _FREQ_ lower_bound upper_bound IQR;
+	run;
+
+/* Build a histogram for cleaned data */
+	proc sgplot data=&out_data;
+		histogram &var / transparency=0.5;
+		title "Histogram for &var after IQR Cleaning";
+	run;
+
+/* View cleared data */
+	proc print data=&out_data(obs=10);
+		title "First 10 Observations of Cleaned Data for &var";
+	run;
+
+	proc contents data=&out_data;
+	run;
+
+%mend clean_iqr_single_var;
+
+/* Applying a macro to one variable */
+%clean_iqr_single_var(final_cleaned_data, AVG_INTERVAL, 
+	cleaned_data_AVG_INTERVAL);
+%clean_iqr_single_var(final_cleaned_data, BP_SUM, cleaned_data_BP_SUM);
+%clean_iqr_single_var(final_cleaned_data, FLIGHT_COUNT, 
+	cleaned_data_FLIGHT_COUNT);
+%clean_iqr_single_var(final_cleaned_data, LAST_TO_END, 
+	cleaned_data_LAST_TO_END);
+%clean_iqr_single_var(final_cleaned_data, MAX_INTERVAL, 
+	cleaned_data_MAX_INTERVAL);
+%clean_iqr_single_var(final_cleaned_data, Point_NotFlight, 
+	cleaned_data_Point_NotFlight);
+%clean_iqr_single_var(final_cleaned_data, Points_Sum, cleaned_data_Points_Sum);
+%clean_iqr_single_var(final_cleaned_data, SEG_KM_SUM, cleaned_data_SEG_KM_SUM);
+%clean_iqr_single_var(final_cleaned_data, SUM_YR_1, cleaned_data_SUM_YR_1);
+%clean_iqr_single_var(final_cleaned_data, SUM_YR_2, cleaned_data_SUM_YR_2);
+
+
+/*merging data after cleaning*/
+
+proc sort data=cleaned_data_AVG_INTERVAL;
+	by MEMBER_NO;
+run;
+
+proc sort data=cleaned_data_FLIGHT_COUNT;
+	by MEMBER_NO;
+run;
+
+proc sort data=cleaned_data_LAST_TO_END;
+	by MEMBER_NO;
+run;
+
+proc sort data=cleaned_data_MAX_INTERVAL;
+	by MEMBER_NO;
+run;
+
+proc sort data=cleaned_data_Point_NotFlight;
+	by MEMBER_NO;
+run;
+
+proc sort data=cleaned_data_Points_Sum;
+	by MEMBER_NO;
+run;
+
+proc sort data=cleaned_data_SEG_KM_SUM;
+	by MEMBER_NO;
+run;
+
+proc sort data=cleaned_data_SUM_YR_1;
+	by MEMBER_NO;
+run;
+
+proc sort data=cleaned_data_SUM_YR_2;
+	by MEMBER_NO;
+run;
+
+proc sql;
+	create table cleaned_data_after as select a.*, b.*, c.*, d.*, e.*, f.*, g.*, 
+		h.*, i.* from cleaned_data_AVG_INTERVAL a inner join 
+		cleaned_data_FLIGHT_COUNT b on a.MEMBER_NO=b.MEMBER_NO inner join 
+		cleaned_data_LAST_TO_END c on a.MEMBER_NO=c.MEMBER_NO inner join 
+		cleaned_data_MAX_INTERVAL d on a.MEMBER_NO=d.MEMBER_NO inner join 
+		cleaned_data_Point_NotFlight e on a.MEMBER_NO=e.MEMBER_NO inner join 
+		cleaned_data_Points_Sum f on a.MEMBER_NO=f.MEMBER_NO inner join 
+		cleaned_data_SEG_KM_SUM g on a.MEMBER_NO=g.MEMBER_NO inner join 
+		cleaned_data_SUM_YR_1 h on a.MEMBER_NO=h.MEMBER_NO inner join 
+		cleaned_data_SUM_YR_2 i on a.MEMBER_NO=i.MEMBER_NO;
+quit;
+
+proc contents data=cleaned_data_after;
+run;
+
+proc print data=cleaned_data_after(obs=10);
+	title "First 10 Observations of Merged Cleaned Data";
+run;
+
+/*once again we build distribution graphs on the cleaned data*/
+%box_plot_vars(cleaned_data_after);
+%hist_plot_vars(cleaned_data_after);
+
+
+/*be sure to check for missing values and process them*/
+proc sql;
+	create table nan_counts as 
+		select'WORK_CITY_clean' as Variable, sum(missing(WORK_CITY_clean)) as Missing from cleaned_data_after union all 
+		select 'WORK_COUNTRY_clean', sum(missing(WORK_COUNTRY_clean)) from cleaned_data_after union all
+		select'WORK_PROVINCE_clean',sum(missing(WORK_PROVINCE_clean)) from cleaned_data_after union all
+		select 'AGE', sum(missing(AGE)) from cleaned_data_after union all
+		select 'AVG_INTERVAL', sum(missing(AVG_INTERVAL)) from cleaned_data_after union all
+		select 'BP_SUM', sum(missing(BP_SUM)) from cleaned_data_after union all
+		select 'EXCHANGE_COUNT', sum(missing(EXCHANGE_COUNT)) from cleaned_data_after union all
+		select 'FFP_DATE', sum(missing(datepart(FFP_DATE))) from cleaned_data_after union all
+		select 'FFP_TIER', sum(missing(FFP_TIER)) from cleaned_data_after union all
+		select 'FIRST_FLIGHT_DATE', sum(missing(datepart(FIRST_FLIGHT_DATE))) from cleaned_data_after union all
+		select 'FLIGHT_COUNT', sum(missing(FLIGHT_COUNT)) from cleaned_data_after union all
+		select 'LAST_FLIGHT_DATE', sum(missing(datepart(LAST_FLIGHT_DATE))) from cleaned_data_after union all
+		select 'LAST_TO_END', sum(missing(LAST_TO_END)) from cleaned_data_after union all
+		select 'LOAD_TIME', sum(missing(LOAD_TIME)) from cleaned_data_after union all
+		select 'MAX_INTERVAL', sum(missing(MAX_INTERVAL)) from cleaned_data_after union all
+		select 'MEMBER_NO', sum(missing(MEMBER_NO)) from cleaned_data_after union all
+		select 'Point_NotFlight', sum(missing(Point_NotFlight)) from cleaned_data_after union all 
+		select 'Points_Sum', sum(missing(Points_Sum)) from cleaned_data_after union all
+		select 'SEG_KM_SUM', sum(missing(SEG_KM_SUM)) from cleaned_data_after union all
+		select 'SUM_YR_1', sum(missing(SUM_YR_1)) from cleaned_data_after union all
+		select 'SUM_YR_2', sum(missing(SUM_YR_2)) from cleaned_data_after union all
+		select 'avg_discount', sum(missing(avg_discount)) from cleaned_data_after union all
+		select 'Gender', sum(missing(Gender)) from cleaned_data_after;
+quit;
+
+proc sgplot data=nan_counts;
+	vbar Variable / response=Missing datalabel;
+	xaxis label='Variables';
+	yaxis label='Number of Missing Values';
+	title 'Distribution of Missing Values by Variable';
+run;
+
+
+/* 1. Filling the age column with the average value */
+proc means data=cleaned_data_after mean noprint;
+    var age;
+    output out=mean_age mean=mean_age;
+run;
+
+data cleaned_data_after;
+    set cleaned_data_after;
+    if missing(age) then do;
+        if _n_ = 1 then set mean_age;
+        age = mean_age;
+    end;
+run;
+
+/* 2. Filling last_flight_date with the average value */
+proc means data=cleaned_data_after mean noprint;
+    var last_flight_date;
+    output out=mean_last_flight_date mean=mean_last_flight_date;
+run;
+
+data cleaned_data_after;
+    set cleaned_data_after;
+    if missing(last_flight_date) then do;
+        if _n_ = 1 then set mean_last_flight_date;
+        last_flight_date = mean_last_flight_date;
+    end;
+run;
+
+/* 3. Replacing the values in work_country_clean with NGR, where work_province_clean = "NIGERIA" */
+data cleaned_data_after;
+    set cleaned_data_after;
+    if work_province_clean = "NIGERIA" then work_country_clean = "NGR";
+run;
+
+data cleaned_data_after;
+	set cleaned_data_after;
+    drop mean_last_flight_date mean_age _TYPE_ _FREQ_ missing_count;
+
+run;
+
+
+/*build a correlation matrix on the original processed data*/
+
+proc corr data=cleaned_data_after;
+	var FLIGHT_COUNT SEG_KM_SUM AVG_INTERVAL MAX_INTERVAL SUM_YR_1 SUM_YR_2 
+		Points_Sum EXCHANGE_COUNT LAST_TO_END age;
+run;
+
+/*function for constructing a correlation graph with a regression line*/
+%macro plot_with_regression(data, x, y, title, color);
+	proc sgplot data=&data;
+		scatter x=&x y=&y / markerattrs=(symbol=circlefilled size=10);
+		reg x=&x y=&y / lineattrs=(color=&color thickness=2);
+		xaxis label="&x";
+		yaxis label="&y";
+		title "&title";
+	run;
+
+%mend plot_with_regression;
+
+/* Application of using a macro for plotting */
+%plot_with_regression(cleaned_data_after, FLIGHT_COUNT, SEG_KM_SUM, 
+	"Scatter Plot with Regression Line: FLIGHT_COUNT vs SEG_KM_SUM", red);
+%plot_with_regression(cleaned_data_after, FLIGHT_COUNT, SUM_YR_1, 
+	"Scatter Plot with Regression Line: FLIGHT_COUNT vs SUM_YR_1", blue);
+%plot_with_regression(cleaned_data_after, FLIGHT_COUNT, SUM_YR_2, 
+	"Scatter Plot with Regression Line: FLIGHT_COUNT vs SUM_YR_2", green);
+%plot_with_regression(cleaned_data_after, FLIGHT_COUNT, Points_Sum, 
+	"Scatter Plot with Regression Line: FLIGHT_COUNT vs Points_Sum", orange);
+%plot_with_regression(cleaned_data_after, SEG_KM_SUM, SUM_YR_1, 
+	"Scatter Plot with Regression Line: SEG_KM_SUM vs SUM_YR_1", purple);
+%plot_with_regression(cleaned_data_after, SEG_KM_SUM, SUM_YR_2, 
+	"Scatter Plot with Regression Line: SEG_KM_SUM vs SUM_YR_2", cyan);
+%plot_with_regression(cleaned_data_after, SEG_KM_SUM, Points_Sum, 
+	"Scatter Plot with Regression Line: SEG_KM_SUM vs Points_Sum", magenta);
+%plot_with_regression(cleaned_data_after, AVG_INTERVAL, MAX_INTERVAL, 
+	"Scatter Plot with Regression Line: AVG_INTERVAL vs MAX_INTERVAL", navy);
+%plot_with_regression(cleaned_data_after, SUM_YR_1, Points_Sum, 
+	"Scatter Plot with Regression Line: SUM_YR_1 vs Points_Sum", lime);
+%plot_with_regression(cleaned_data_after, SUM_YR_1, SUM_YR_2, 
+	"Scatter Plot with Regression Line: SUM_YR_1 vs SUM_YR_2", maroon);
+%plot_with_regression(cleaned_data_after, SUM_YR_2, Points_Sum, 
+	"Scatter Plot with Regression Line: SUM_YR_2 vs Points_Sum", olive);
+
+/*add a column with the amount of money spent for the entire period*/
+data cleaned_data_after;
+	set cleaned_data_after;
+	total_sum=SUM_YR_1 + SUM_YR_2;
+run;
+
+data cleaned_data_after;
+	set cleaned_data_after;
+
+	if total_sum ne 0;
+run;
+
+%plot_with_regression(cleaned_data_after, total_sum, Points_Sum, 
+	"Scatter Plot with Regression Line: total amount spent vs Points_Sum", olive);
+%plot_with_regression(cleaned_data_after, SEG_KM_SUM, total_sum, 
+	"Scatter Plot with Regression Line: SEG_KM_SUM vs total amount spent", purple);
+%plot_with_regression(cleaned_data_after, FLIGHT_COUNT, total_sum, 
+	"Scatter Plot with Regression Line: FLIGHT_COUNT vs total amount spent", blue);
+
+/*
+We take logarithms of the data to smooth the distribution, since distributions generally have long tails
+	 Also, don’t forget that many columns contain zeros, so we’ll use log(x+1)
+	
+1. Logarithm the data by adding 1 */
+data log_transformed_data;
+	set cleaned_data_after;
+	log_AVG_INTERVAL=log(AVG_INTERVAL + 1);
+	log_BP_SUM=log(BP_SUM + 1);
+	log_EXCHANGE_COUNT=log(EXCHANGE_COUNT + 1);
+	log_FLIGHT_COUNT=log(FLIGHT_COUNT + 1);
+	log_LAST_TO_END=log(LAST_TO_END + 1);
+	log_POINT_NOTFLIGHT=log(POINT_NOTFLIGHT + 1);
+	log_POINTS_SUM=log(POINTS_SUM + 1);
+	log_SEG_KM_SUM=log(SEG_KM_SUM + 1);
+	log_SUM_YR_1=log(SUM_YR_1 + 1);
+	log_SUM_YR_2=log(SUM_YR_2 + 1);
+	log_total_sum=log(total_sum + 1);
+	log_MAX_INTERVAL=log(MAX_INTERVAL + 1);
+run;
+
+/*build regression graphs with logarithmic data*/
+
+%plot_with_regression(log_transformed_data, log_FLIGHT_COUNT, log_SEG_KM_SUM, 
+	"Scatter Plot with Regression Line: FLIGHT_COUNT vs SEG_KM_SUM", red);
+%plot_with_regression(log_transformed_data, log_FLIGHT_COUNT, log_SUM_YR_1, 
+	"Scatter Plot with Regression Line: FLIGHT_COUNT vs SUM_YR_1", blue);
+%plot_with_regression(log_transformed_data, log_FLIGHT_COUNT, log_SUM_YR_2, 
+	"Scatter Plot with Regression Line: FLIGHT_COUNT vs SUM_YR_2", green);
+%plot_with_regression(log_transformed_data, log_FLIGHT_COUNT, log_POINTS_SUM, 
+	"Scatter Plot with Regression Line: FLIGHT_COUNT vs Points_Sum", orange);
+%plot_with_regression(log_transformed_data, log_SEG_KM_SUM, log_SUM_YR_1, 
+	"Scatter Plot with Regression Line: SEG_KM_SUM vs SUM_YR_1", purple);
+%plot_with_regression(log_transformed_data, log_SEG_KM_SUM, log_SUM_YR_2, 
+	"Scatter Plot with Regression Line: SEG_KM_SUM vs SUM_YR_2", cyan);
+%plot_with_regression(log_transformed_data, log_SEG_KM_SUM, log_POINTS_SUM, 
+	"Scatter Plot with Regression Line: SEG_KM_SUM vs Points_Sum", magenta);
+%plot_with_regression(log_transformed_data, log_AVG_INTERVAL, log_MAX_INTERVAL, 
+	"Scatter Plot with Regression Line: AVG_INTERVAL vs MAX_INTERVAL", navy);
+%plot_with_regression(log_transformed_data, log_SUM_YR_1, log_POINTS_SUM, 
+	"Scatter Plot with Regression Line: SUM_YR_1 vs Points_Sum", lime);
+%plot_with_regression(log_transformed_data, log_SUM_YR_1, log_SUM_YR_2, 
+	"Scatter Plot with Regression Line: SUM_YR_1 vs SUM_YR_2", maroon);
+%plot_with_regression(log_transformed_data, log_SUM_YR_2, log_POINTS_SUM, 
+	"Scatter Plot with Regression Line: SUM_YR_2 vs Points_Sum", olive);
+%plot_with_regression(log_transformed_data, log_total_sum, log_POINTS_SUM, 
+	"Scatter Plot with Regression Line: total amount spent vs Points_Sum", olive);
+%plot_with_regression(log_transformed_data, log_SEG_KM_SUM, log_total_sum, 
+	"Scatter Plot with Regression Line: SEG_KM_SUM vs total amount spent", purple);
+%plot_with_regression(log_transformed_data, log_FLIGHT_COUNT, log_total_sum, 
+	"Scatter Plot with Regression Line: FLIGHT_COUNT vs total amount spent", blue);
+
+
+/*
+adding categorical variables
+
+application of segmentation (RFM)
+*/
+
+/*we recalculate the last date in the data in order to verify the presented value in the column with the end date of observation*/
+proc sql;
+	select put(max(LAST_FLIGHT_DATE), date9.) into :max_date from cleaned_data;
+quit;
+
+%put &max_date;
+
+data data_diff;
+	set log_transformed_data;
+	format max_date date9.;
+	max_date=input("&max_date", date9.);
+
+/* Convert a macro variable to a date */
+	days_since_last_flight=max_date - LAST_FLIGHT_DATE;
+run;
+
+/* Display a graph of the distribution of the number of days */
+proc sgplot data=data_diff;
+	histogram days_since_last_flight;
+	title "Distribution of Days Since Last Flight";
+	xaxis label="Days Since Last Flight";
+	yaxis label="Frequency";
+run;
+
+
+/* Step 1: Create new categorical variables based on thresholds */
+data data_segmented;
+	set data_diff;
+
+
+	if total_sum < 1000 then
+		COST_CAT=1;
+	else if total_sum >=1000 and total_sum < 5000 then
+		COST_CAT=2;
+	else if total_sum >=5000 and total_sum < 12000 then
+		COST_CAT=3;
+	else if total_sum >=12000 and total_sum < 20000 then
+		COST_CAT=4;
+	else if total_sum >=20000 then
+		COST_CAT=5;
+
+	if FLIGHT_COUNT < 3 then
+		FREQ_CAT=1;
+	else if FLIGHT_COUNT >=3 and FLIGHT_COUNT < 6 then
+		FREQ_CAT=2;
+	else if FLIGHT_COUNT >=6 and FLIGHT_COUNT < 10 then
+		FREQ_CAT=3;
+	else if FLIGHT_COUNT >=10 and FLIGHT_COUNT < 20 then
+		FREQ_CAT=4;
+	else if FLIGHT_COUNT >=20 then
+		FREQ_CAT=5;
+
+	if days_since_last_flight > 396 then
+		RECENCY_CAT=1;
+	else if days_since_last_flight > 180 and days_since_last_flight <=396 then
+		RECENCY_CAT=2;
+	else if days_since_last_flight > 90 and days_since_last_flight <=180 then
+		RECENCY_CAT=3;
+	else if days_since_last_flight > 30 and days_since_last_flight <=90 then
+		RECENCY_CAT=4;
+	else if days_since_last_flight <=30 then
+		RECENCY_CAT=5;
+
+/* Create the final segment variable */
+	COST_FREQ_HISTORY=cats(COST_CAT, FREQ_CAT, RECENCY_CAT);
+run;
+
+proc freq data=data_segmented;
+	tables COST_CAT FREQ_CAT RECENCY_CAT COST_FREQ_HISTORY / norow nocol nopercent;
+	title "Frequency Distribution of Categories";
+run;
+
+/*an example of constructing a regression model based on the dependence of a categorical variable in correlation with distance*/
+
+proc glm data=data_segmented;
+	class COST_CAT FREQ_CAT RECENCY_CAT;
+	model log_SEG_KM_SUM=COST_CAT FREQ_CAT RECENCY_CAT;
+	output out=reg_output p=Predicted r=Residual;
+	title "Regression Model: Predicting Total Flight Distance";
+	run;
+
+proc sgplot data=reg_output;
+	scatter x=log_SEG_KM_SUM y=Predicted / markerattrs=(symbol=circlefilled size=10);
+	lineparm x=0 y=0 slope=1 / lineattrs=(color=red thickness=2);
+	xaxis label="Observed Total Flight Distance (SEG_KM_SUM)";
+	yaxis label="Predicted Total Flight Distance";
+	title "Observed vs Predicted Total Flight Distance";
+run;
+
+proc sgplot data=reg_output;
+	scatter x=Predicted y=Residual / markerattrs=(symbol=circlefilled size=10);
+	refline 0 / axis=y lineattrs=(color=red);
+	xaxis label="Predicted Total Flight Distance";
+	yaxis label="Residuals";
+	title "Residuals vs Predicted Total Flight Distance";
+run;
