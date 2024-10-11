@@ -1,4 +1,4 @@
-https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR8J5GeNl3h7qAFzttyENePBcc-fhQD7fykIGtsrDaC7rS-vsnnDY4ePeIZirlzehPVJQ&usqp=CAU![image](https://github.com/user-attachments/assets/88c0c333-f961-428c-8678-98389bd9ff6e)
+<img width="443" alt="image" src="https://github.com/user-attachments/assets/50e94b3e-1dba-441a-adb0-6063f566c170">
 
 Проект по Sas Studio - часть экосистемы SAS. Тут реализуется код, который позволяет манипулировать данными напрямую с серверов SAS,
 и других корпаративных решений.
